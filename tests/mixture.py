@@ -6,7 +6,7 @@ import seaborn as sns
 sns.set()
 import sys
 sys.path.insert(0, "../")
-from vrvm.vrvm import VRVM
+from vrvm.vrvm import VRVM, VRVMSparse
 
 
 def mixture_data(nsamples):
@@ -33,7 +33,7 @@ def mixture_data(nsamples):
 
 if __name__ == "__main__":
 
-	N = 150
+	N = 50
 	X1, X2 = mixture_data(N)
 	#plt.scatter(X1[:, 0], X1[:, 1], marker="x")
 	#plt.scatter(X2[:, 0], X2[:, 1], marker="o", s=1)
@@ -50,8 +50,8 @@ if __name__ == "__main__":
 	clf = svm.SVC()
 	clf.fit(X, Y.flatten())
 
-	rvm = VRVM(2, lengthscale=2.)
-	rvm.fit(X, Y, maxit=1000)
+	rvm = VRVMSparse(2, lengthscale=1.)
+	rvm.fit(X, Y, maxit=100)
 	x1 = np.linspace(-5, 9, 101)
 	x2 = np.linspace(-8, 7, 101)
 	xx, yy = np.meshgrid(x1, x2)
@@ -64,5 +64,6 @@ if __name__ == "__main__":
 	plt.contourf(x1, x2, (sig_pred.reshape(101, 101)>0.5), 50, alpha=0.4)
 	plt.scatter(X[:, 0], X[:, 1], c=Y.flatten(), s=20, edgecolor='k')
 	plt.title("VRVM", fontsize=14)
-	plt.savefig("VRVM.png")
+	plt.show()
+	#plt.savefig("VRVM.png")
 
