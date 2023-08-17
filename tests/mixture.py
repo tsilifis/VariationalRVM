@@ -50,7 +50,7 @@ if __name__ == "__main__":
 	clf = svm.SVC()
 	clf.fit(X, Y.flatten())
 
-	rvm = VRVMSparse(2, lengthscale=1.)
+	rvm = VRVM(2, lengthscale=1.)
 	rvm.fit(X, Y, maxit=100)
 	x1 = np.linspace(-5, 9, 101)
 	x2 = np.linspace(-8, 7, 101)
