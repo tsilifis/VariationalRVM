@@ -350,7 +350,7 @@ class VRVMSoftMax(VRVMBase):
 
     _cutoff = None
 
-    def __init__(self, input_dim, nlabels=2, kernel="rbf", lengthscale=0.5, pol_order=4):
+    def __init__(self, input_dim, nlabels=2, kernel="rbf", lengthscale=0.5, pol_type='H', pol_order=4):
         """
         Initializes a Variational Relevance Vector Machine object.
         Parameters that need fine-tuning:  
@@ -367,7 +367,7 @@ class VRVMSoftMax(VRVMBase):
             self._kernel = RBF(input_dim, corr_length=lengthscale)
         elif kernel == 'chaos':
             self._kernel_type = kernel
-            self._kernel = cb.PolyBasis(dim=input_dim, degree=pol_order)
+            self._kernel = cb.PolyBasis(dim=input_dim, degree=pol_order, pol_type=pol_type)
         else:
             NotImplementedError('No compatible kernel provided')
 
@@ -377,19 +377,20 @@ class VRVMSoftMax(VRVMBase):
         if self._kernel_type == 'rbf':
             self._Phi = self._kernel.eval(X)
             Phi_ = np.vstack([np.ones((1, self._Phi.shape[0])), self._Phi])
+            m_hat = np.vstack([np.zeros(self._Phi.shape[1]+1) for _ in range(self._nlabels)])
+            S_hat = [np.eye(self._Phi.shape[1] + 1) for _ in range(self._nlabels)]
         if self._kernel_type == 'chaos':
             self._Phi = self._kernel(X)
             Phi_ = self._Phi.T
+            m_hat = np.vstack([np.zeros(self._Phi.shape[1]) for _ in range(self._nlabels)])
+            S_hat = [np.eye(self._Phi.shape[1]) for _ in range(self._nlabels)]
         a = b = 1e-6
         c, d = 0.2, 1
 
-        m_hat = np.vstack([np.zeros(self._Phi.shape[1] + 1) for _ in range(self._nlabels)]) # K x (N+1)
-        S_hat = [np.eye(self._Phi.shape[1] + 1) for _ in range(self._nlabels)]
-
         err = 1e6
 
-        a_hat = np.vstack([(a + 0.5) * np.ones(self._Phi.shape[1] + 1) for _ in range(self._nlabels)]) # K x (N+1)
-        b_hat = np.vstack([(b + 0.5) * np.ones(self._Phi.shape[1] + 1) for _ in range(self._nlabels)]) # K x (N+1)
+        a_hat = np.vstack([(a + 0.5) * np.ones(Phi_.shape[0]) for _ in range(self._nlabels)]) # K x (N+1)
+        b_hat = np.vstack([(b + 0.5) * np.ones(Phi_.shape[0]) for _ in range(self._nlabels)]) # K x (N+1)
 
         xi_all = np.vstack([[
             np.dot(
@@ -452,7 +453,8 @@ class VRVMSoftMax(VRVMBase):
             gamma = np.array([(0.5*(self._nlabels/2 - 1) + (Lambda(np.sqrt(xi_all[:, i]))*np.dot(m_hat, Phi_[:, i])).sum()) / Lambda(np.sqrt(xi_all[:, i])).sum() for i in range(Phi_.shape[1])])
 
             err = sum(err_all)
-            print("Mean Squared Error: " + str(err))
+            if num_it % 10 == 0:
+                print("Mean Squared Error at iteration " + str(num_it) + ": " + str(err))
             num_it += 1
 
         self._q_params = {"mu": m_hat, "S": S_hat}
@@ -461,8 +463,12 @@ class VRVMSoftMax(VRVMBase):
         """
         Make prediction on the test data X
         """
-        Phi = self._kernel.eval(self._train_data["X"], Y=X)
-        Phi_ = np.vstack([np.ones((1, Phi.shape[1])), Phi]) 
+        if self._kernel_type == 'rbf':
+            Phi = self._kernel.eval(self._train_data["X"], Y=X)
+            Phi_ = np.vstack([np.ones((1, Phi.shape[1])), Phi]) 
+        elif self._kernel_type == 'chaos':
+            Phi = self._kernel(X)
+            Phi_ = Phi.T
         y = np.dot(self._q_params["mu"], Phi_) # K x N
         return np.exp(y) / np.exp(y).sum(axis=0)
 
